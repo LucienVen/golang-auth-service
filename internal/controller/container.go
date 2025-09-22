@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/LucienVen/golang-auth-service/internal/db"
+	"github.com/LucienVen/golang-auth-service/internal/appcontext"
 )
 
 // Container 控制器容器
@@ -11,9 +11,9 @@ type Container struct {
 }
 
 // NewContainer 创建控制器容器
-func NewContainer(db db.DB) *Container {
+func NewContainer(appCtx *appcontext.AppContext) *Container {
 	return &Container{
-		Health: NewHealthController(db),
+		Health: NewHealthController(appCtx.DB),
 		// 在这里初始化其他控制器
 	}
 }

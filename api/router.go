@@ -1,19 +1,20 @@
 package api
 
 import (
-	"github.com/LucienVen/golang-auth-service/internal/db"
+	"github.com/LucienVen/golang-auth-service/internal/appcontext"
+	"github.com/LucienVen/golang-auth-service/internal/controller"
 	"github.com/LucienVen/golang-auth-service/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 // Router 路由管理器
 type Router struct {
-	engine  *gin.Engine
-	handler *Handler
+	engine      *gin.Engine
+	controllers *controller.Container
 }
 
 // NewRouter 创建路由管理器
-func NewRouter(db db.DB) *Router {
+func NewRouter(appCtx *appcontext.AppContext) *Router {
 	// 创建 Gin 引擎
 	engine := gin.New()
 
@@ -22,8 +23,8 @@ func NewRouter(db db.DB) *Router {
 	engine.Use(middleware.Logger())
 
 	return &Router{
-		engine:  engine,
-		handler: NewHandler(db),
+		engine:      engine,
+		controllers: controller.NewContainer(appCtx),
 	}
 }
 
@@ -33,8 +34,12 @@ func (r *Router) RegisterRoutes() {
 	base := r.engine.Group("/api")
 	{
 		// 健康检查
-		base.GET("/health", r.handler.HealthCheck)
-		base.GET("/ping", r.handler.Ping)
+		base.GET("/health", r.controllers.Health.Check)
+		base.GET("/ping", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"message": "pong",
+			})
+		})
 	}
 
 	// TODO: 添加更多路由组

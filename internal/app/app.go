@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/LucienVen/golang-auth-service/internal/appcontext"
 	"net/http"
 	"time"
 
@@ -24,6 +25,8 @@ type Application struct {
 	logger   *log.Logger
 	ctx      context.Context
 	shutdown *ShutdownManager
+	redis    *db.RedisClient
+	appCtx   *appcontext.AppContext
 }
 
 // NewApplication 创建新的应用实例
@@ -54,6 +57,12 @@ func (app *Application) Start() error {
 	if err := app.initDatabase(); err != nil {
 		return fmt.Errorf("数据库初始化失败: %w", err)
 	}
+
+	if err := app.initRedis(); err != nil {
+		return fmt.Errorf("redis初始化失败: %w", err)
+	}
+
+	app.appCtx = &appcontext.AppContext{DB: app.db, Redis: app.redis}
 
 	// 4. 健康检查初始化
 	if err := app.initHealthCheck(); err != nil {
@@ -142,5 +151,14 @@ func (app *Application) initServer() error {
 		Handler: app.router.GetEngine(),
 	}
 	app.shutdown.Register(app.server)
+	return nil
+}
+
+func (app *Application) initRedis() error {
+	app.redis = db.NewRedisClient(app.config.RedisAddr, app.config.RedisPassword, 0)
+	if err := app.redis.Ping(app.ctx); err != nil {
+		return err
+	}
+	app.shutdown.Register(app.redis)
 	return nil
 }
