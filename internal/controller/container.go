@@ -11,7 +11,7 @@ type Container struct {
 }
 
 // NewContainer 创建控制器容器
-func NewContainer(db *db.GormDB) *Container {
+func NewContainer(db db.DB) *Container {
 	return &Container{
 		Health: NewHealthController(db),
 		// 在这里初始化其他控制器

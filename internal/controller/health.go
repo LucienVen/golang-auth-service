@@ -6,11 +6,11 @@ import (
 
 // HealthController 健康检查控制器
 type HealthController struct {
-	db *db.GormDB
+	db db.DB
 }
 
 // NewHealthController 创建健康检查控制器
-func NewHealthController(db *db.GormDB) *HealthController {
+func NewHealthController(db db.DB) *HealthController {
 	return &HealthController{
 		db: db,
 	}

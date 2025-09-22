@@ -13,7 +13,7 @@ type Router struct {
 }
 
 // NewRouter 创建路由管理器
-func NewRouter(db *db.GormDB) *Router {
+func NewRouter(db db.DB) *Router {
 	// 创建 Gin 引擎
 	engine := gin.New()
 

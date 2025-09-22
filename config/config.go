@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +20,20 @@ type Config struct {
 	DBPass   string `mapstructure:"DB_PASS"`
 	DBName   string `mapstructure:"DB_NAME"`
 	HTTPPort int64  `mapstructure:"HTTP_PORT"`
+
+	// PostgreSQL 配置
+	PGHost string `mapstructure:"PG_HOST"`
+	PGPort string `mapstructure:"PG_PORT"`
+	PGUser string `mapstructure:"PG_USER"`
+	PGPass string `mapstructure:"PG_PASS"`
+	PGName string `mapstructure:"PG_NAME"`
+
+	// reids 配置
+	RedisAddr     string `mapstructure:"REDIS_ADDR"`
+	RedisPassword string `mapstructure:"REDIS_PASSWORD"`
+
+	// DBType 用于指定数据库类型，例如 "mysql" 或 "pg"
+	DBType string `mapstructure:"DB_TYPE"`
 }
 
 var (
@@ -47,15 +60,26 @@ func Load(overload bool, configPath ...string) {
 
 	// 设置配置文件路径
 	var envPath string
+	// if len(configPath) > 0 && configPath[0] != "" {
+	// 	// 1. 首先检查环境变量指定的配置文件路径
+	// 	if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
+	// 		envPath = configFile
+	// 	} else {
+	// 		// 2. 使用默认配置文件路径（cmd/.env）
+	// 		envPath = filepath.Join("cmd", ".env")
+	// 	}
+	// } else {
+	// 	envPath = ".env"
+	// }
+
 	if len(configPath) > 0 && configPath[0] != "" {
-		// 1. 首先检查环境变量指定的配置文件路径
-		if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
-			envPath = configFile
-		} else {
-			// 2. 使用默认配置文件路径（cmd/.env）
-			envPath = filepath.Join("cmd", ".env")
-		}
+		// 如果外部调用者传了绝对路径或想要用的路径，就尊重它
+		envPath = configPath[0]
+	} else if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
+		// 如果没传，但设置了 CONFIG_FILE 环境变量，就用它
+		envPath = configFile
 	} else {
+		// 默认 fall back
 		envPath = ".env"
 	}
 
@@ -110,6 +134,19 @@ func bindEnvs() {
 	v.BindEnv("DB_PASS")
 	v.BindEnv("DB_NAME")
 	v.BindEnv("HTTP_PORT")
+
+	// PostgreSQL 配置
+	v.BindEnv("PG_HOST")
+	v.BindEnv("PG_PORT")
+	v.BindEnv("PG_USER")
+	v.BindEnv("PG_PASS")
+	v.BindEnv("PG_NAME")
+
+	// Redis 配置
+	v.BindEnv("REDIS_ADDR")
+	v.BindEnv("REDIS_PASSWORD")
+	// 数据库类型配置
+	v.BindEnv("DB_TYPE")
 }
 
 // GetConfig 获取配置

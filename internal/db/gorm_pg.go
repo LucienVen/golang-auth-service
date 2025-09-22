@@ -7,33 +7,33 @@ import (
 	"time"
 
 	"github.com/LucienVen/golang-auth-service/config"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-// GormDB GORM 数据库管理器
-// GormDB 实现了 db.DB 接口
-type GormDB struct {
+// GormPGDB GORM PostgreSQL 数据库管理器
+// GormPGDB 实现了 db.DB 接口
+type GormPGDB struct {
 	db  *gorm.DB
 	cfg *config.Config
 }
 
-// NewGormDB 创建新的 GORM 连接
-func NewGormDB(cfg *config.Config) *GormDB {
-	return &GormDB{
+// NewGormPGDB 创建新的 GORM PostgreSQL 连接
+func NewGormPGDB(cfg *config.Config) *GormPGDB {
+	return &GormPGDB{
 		cfg: cfg,
 	}
 }
 
-// Connect 连接数据库
-func (g *GormDB) Connect() error {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		g.cfg.DBUser,
-		g.cfg.DBPass,
-		g.cfg.DBHost,
-		g.cfg.DBPort,
-		g.cfg.DBName,
+// Connect 连接 PostgreSQL 数据库
+func (g *GormPGDB) Connect() error {
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		g.cfg.PGHost,
+		g.cfg.PGPort,
+		g.cfg.PGUser,
+		g.cfg.PGPass,
+		g.cfg.PGName,
 	)
 
 	// 配置 GORM
@@ -45,9 +45,9 @@ func (g *GormDB) Connect() error {
 	}
 
 	// 连接数据库
-	db, err := gorm.Open(mysql.Open(dsn), gormConfig)
+	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
 	if err != nil {
-		return fmt.Errorf("连接数据库失败: %w", err)
+		return fmt.Errorf("连接 PostgreSQL 数据库失败: %w", err)
 	}
 
 	// 获取通用数据库对象 sql.DB
@@ -57,16 +57,16 @@ func (g *GormDB) Connect() error {
 	}
 
 	// 设置连接池
-	sqlDB.SetMaxIdleConns(10)           // 设置空闲连接池中连接的最大数量
-	sqlDB.SetMaxOpenConns(100)          // 设置打开数据库连接的最大数量
-	sqlDB.SetConnMaxLifetime(time.Hour) // 设置了连接可复用的最大时间
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	g.db = db
 	return nil
 }
 
 // Close 关闭数据库连接
-func (g *GormDB) Close() error {
+func (g *GormPGDB) Close() error {
 	if g.db != nil {
 		sqlDB, err := g.db.DB()
 		if err != nil {
@@ -75,18 +75,18 @@ func (g *GormDB) Close() error {
 		if err := sqlDB.Close(); err != nil {
 			return fmt.Errorf("关闭数据库连接失败: %w", err)
 		}
-		log.Println("数据库连接已关闭")
+		log.Println("PostgreSQL 数据库连接已关闭")
 	}
 	return nil
 }
 
 // GetDB 获取数据库连接
-func (g *GormDB) GetDB() *gorm.DB {
+func (g *GormPGDB) GetDB() *gorm.DB {
 	return g.db
 }
 
 // Ping 检查数据库连接
-func (g *GormDB) Ping() error {
+func (g *GormPGDB) Ping() error {
 	if g.db == nil {
 		return fmt.Errorf("数据库未连接")
 	}
@@ -98,7 +98,7 @@ func (g *GormDB) Ping() error {
 }
 
 // AutoMigrate 自动迁移数据库结构
-func (g *GormDB) AutoMigrate(models ...interface{}) error {
+func (g *GormPGDB) AutoMigrate(models ...interface{}) error {
 	if g.db == nil {
 		return fmt.Errorf("数据库未连接")
 	}
@@ -106,7 +106,7 @@ func (g *GormDB) AutoMigrate(models ...interface{}) error {
 }
 
 // Transaction 事务处理
-func (g *GormDB) Transaction(fc func(tx *gorm.DB) error) error {
+func (g *GormPGDB) Transaction(fc func(tx *gorm.DB) error) error {
 	if g.db == nil {
 		return fmt.Errorf("数据库未连接")
 	}
@@ -114,11 +114,11 @@ func (g *GormDB) Transaction(fc func(tx *gorm.DB) error) error {
 }
 
 // Shutdown 实现 Shutdownable 接口
-func (g *GormDB) Shutdown(ctx context.Context) error {
+func (g *GormPGDB) Shutdown(ctx context.Context) error {
 	return g.Close()
 }
 
 // GetType 返回数据库类型
-func (g *GormDB) GetType() string {
-	return DBTypeMySQL
+func (g *GormPGDB) GetType() string {
+	return DBTypePG
 }

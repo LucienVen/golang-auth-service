@@ -17,7 +17,7 @@ import (
 // Application 应用程序核心结构
 type Application struct {
 	config   *config.Config
-	db       *db.GormDB
+	db       db.DB
 	router   *api.Router
 	health   *db.HealthChecker
 	server   *http.Server
@@ -101,7 +101,14 @@ func (app *Application) initLogger() error {
 
 // initDatabase 初始化数据库
 func (app *Application) initDatabase() error {
-	app.db = db.NewGormDB(app.config)
+	switch app.config.DBType {
+	case "mysql":
+		app.db = db.NewGormDB(app.config)
+	case "pg":
+		app.db = db.NewGormPGDB(app.config)
+	default:
+		return fmt.Errorf("不支持的数据库类型: %s", app.config.DBType)
+	}
 	if err := app.db.Connect(); err != nil {
 		return fmt.Errorf("数据库连接失败: %w", err)
 	}

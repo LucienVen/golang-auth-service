@@ -9,13 +9,13 @@ import (
 
 // HealthChecker 健康检查器
 type HealthChecker struct {
-	db     *GormDB
+	db     DB
 	ticker *time.Ticker
 	done   chan struct{}
 }
 
 // NewHealthChecker 创建健康检查器
-func NewHealthChecker(db *GormDB) *HealthChecker {
+func NewHealthChecker(db DB) *HealthChecker {
 	return &HealthChecker{
 		db:   db,
 		done: make(chan struct{}),

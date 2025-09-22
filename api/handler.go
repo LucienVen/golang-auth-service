@@ -14,7 +14,7 @@ type Handler struct {
 }
 
 // NewHandler 创建处理函数
-func NewHandler(db *db.GormDB) *Handler {
+func NewHandler(db db.DB) *Handler {
 	return &Handler{
 		controllers: controller.NewContainer(db),
 	}
