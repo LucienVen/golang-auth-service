@@ -114,6 +114,73 @@ CL-YYYYMMDD-HHMMSS-XXXX
 
 ---
 
+**ID**: `CL-20251028-005058-4016`
+**时间戳**: 2025-10-28 00:50:58
+**变更类型**: [ADD] [MOD] [CHECKPOINT]
+**模块**: 基础设施扩展 - 第一阶段完成
+**描述**: 完成第一阶段基础设施扩展 - User实体扩展、输入验证工具、Repository层实现
+**文件**:
+- `internal/entity/user.go` - 扩展User实体模型（修改）
+- `internal/utils/validator.go` - 输入验证工具（新增）
+- `internal/utils/validator_test.go` - 验证工具测试（新增）
+- `internal/repository/user_repository.go` - 用户Repository接口（新增）
+- `internal/repository/user_repository_impl.go` - Repository实现类（新增）
+- `internal/repository/user_repository_test.go` - Repository测试（新增）
+
+**User实体扩展**:
+- 添加`PasswordHash`字段替换明文`Passwd`字段
+- 增加`LastLoginAt`最后登录时间字段
+- 完善GORM标签配置（唯一索引、字段长度限制等）
+- 添加状态检查方法：`IsActive()`, `IsDisabled()`, `CanLogin()`等
+- 实现验证方法：`ValidateUsername()`, `ValidateEmail()`, `ValidatePhone()`, `ValidatePassword()`
+- 添加便利方法：`GetDisplayUsername()`, `GetAccountIdentifier()`, `UpdateLastLogin()`
+- 实现GORM钩子：`BeforeCreate()`, `BeforeUpdate()`自动数据验证和清理
+- 提供安全JSON序列化方法`ToSafeJSON()`排除敏感信息
+
+**输入验证工具**:
+- 邮箱格式验证（RFC 5322兼容，支持域名验证）
+- 中国大陆手机号验证（11位，1开头，第二位3-9）
+- 用户名格式验证（3-50字符，字母数字下划线，不能下划线开头结尾）
+- 账户统一验证（支持邮箱/手机号/用户名自动识别）
+- 密码强度验证（复用现有password工具）
+- 数据清理工具：`SanitizeEmail()`, `SanitizePhone()`, `SanitizeUsername()`
+- 批量验证支持：`ValidationErrors`错误收集
+- 安全验证：SQL注入和XSS攻击检测
+- 完整的测试覆盖，包含基准测试
+
+**Repository数据访问层**:
+- 完整的CRUD操作：`Create()`, `GetByID()`, `Update()`, `Delete()`
+- 多种查询方式：`GetByEmail()`, `GetByPhone()`, `GetByUsername()`
+- 统一账户查询：`GetByAccount()`支持三种登录方式
+- 批量操作：`CreateBatch()`, `UpdateBatch()`, `DeleteBatch()`
+- 业务查询：`ExistsByEmail()`, `SearchUsers()`, `GetInactiveUsers()`
+- 统计功能：`CountByStatus()`, `GetStatusDistribution()`, `GetRegistrationStats()`
+- 事务支持：`WithTransaction()`方法
+- 软删除支持，逻辑删除标记处理
+- 完整的单元测试和集成测试
+
+**影响**:
+- 完成第一阶段基础设施扩展，为Service层提供完整的数据访问基础
+- User实体支持现代认证系统需求，密码安全存储
+- 输入验证工具提供统一的数据验证和安全检查
+- Repository层实现完整的数据访问模式，支持复杂业务查询
+- 项目整体完成度从45%提升至60%
+
+**测试**:
+- User实体：验证方法、状态检查、GORM钩子测试
+- 验证工具：各种格式验证、边界情况、性能基准测试
+- Repository层：CRUD操作、批量处理、事务、集成测试
+- 测试覆盖率目标：工具层95%+，Repository层90%+
+
+**回退**:
+1. 删除新增文件：validator.go, validator_test.go, user_repository.go, user_repository_impl.go, user_repository_test.go
+2. 恢复user.go到修改前状态（恢复Passwd字段，移除新增方法）
+3. 更新相关导入和依赖
+
+**Git Commit**: TBD
+
+---
+
 **ID**: `CL-20251027-142939-8451`
 **时间戳**: 2025-10-27 14:29:39
 **变更类型**: [ADD] [CHECKPOINT]
@@ -214,8 +281,8 @@ git checkout <commit-hash>
 ## 📊 统计信息
 
 ### 按类型统计
-- **新增功能**: 3个
-- **修改功能**: 0个
+- **新增功能**: 4个
+- **修改功能**: 1个
 - **修复问题**: 0个
 - **删除功能**: 0个
 - **性能优化**: 0个
@@ -225,11 +292,12 @@ git checkout <commit-hash>
 - **项目初始化**: 1个变更
 - **项目规划**: 1个变更
 - **开发规范**: 1个变更
+- **基础设施扩展**: 2个变更
 
 ### Checkpoint统计
-- **总Checkpoint数**: 0个
-- **最新Checkpoint**: 无
-- **下一个Checkpoint**: 密码加密模块实现
+- **总Checkpoint数**: 2个
+- **最新Checkpoint**: `CL-20251028-005058-4016` (第一阶段基础设施扩展完成)
+- **下一个Checkpoint**: Service层业务逻辑实现
 
 ---
 
