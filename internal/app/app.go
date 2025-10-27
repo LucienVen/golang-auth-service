@@ -139,7 +139,7 @@ func (app *Application) initRouter() error {
 	gin.SetMode(app.config.GetGinMode())
 
 	// 创建路由
-	app.router = api.NewRouter(app.db)
+	app.router = api.NewRouter(app.appCtx)
 	app.router.RegisterRoutes()
 	return nil
 }
