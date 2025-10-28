@@ -21,20 +21,41 @@ vendor/
 go.work
 go.work.sum
 
-# env file
+# Environment files
 .env
+.env.local
+.env.production
 .idea/
 
+# Logs and temporary files
 **/logs/
 *.log
-
 **/export/
 
+# Editor files
 .vscode/
-
 .DS_Store
-
 **/__debug_bin*
 
-
+# Build artifacts
 main
+auth-service
+dist/
+build/
+
+# Documentation drafts (keep organized structure)
+# Only ignore temporary draft files, not organized docs
+doc/draft-*
+doc/temp-*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+coverage.html
+coverage.out
+
+# Go module cache
+.sum

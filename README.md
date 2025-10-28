@@ -1,6 +1,21 @@
 # golang-auth-service
 Golang Auth Service — A unified authentication &amp; registration service built with Golang, JWT, Redis, PostgreSQL.
 
+## 📚 文档导航
+
+> **重要提醒**：本项目所有技术文档已统一迁移到 [`doc/`](doc/) 目录，采用模块化组织结构。
+
+### 🚀 快速开始
+- **[项目开发计划](doc/project/plan.md)** - 详细的项目实施计划和MVP功能规划
+- **[架构分析报告](doc/project/architecture-analysis.md)** - 项目技术架构和依赖关系分析
+
+### 📖 开发指南
+- **[变更日志](doc/development/changelog.md)** - 项目开发记录和checkpoint机制
+- **[开发指南](doc/development/claude.md)** - Claude Code配置和开发规范
+
+### 📦 完整文档索引
+查看 [`doc/README.md`](doc/README.md) 获取完整的文档导航和模块说明。
+
 
 
 # Golang 统一登录注册服务（PostgreSQL + Redis）
