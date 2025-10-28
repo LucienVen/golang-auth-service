@@ -3,30 +3,11 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/LucienVen/golang-auth-service/internal/app"
 	"math"
-	"os"
-
-	"github.com/LucienVen/golang-auth-service/pkg/log"
 )
 
-func FirstInit() {
-	// 创建应用实例
-	application := app.NewApplication()
-
-	// 启动应用
-	if err := application.Start(); err != nil {
-		log.Errorf("应用启动失败: %v", err)
-		os.Exit(1)
-	}
-
-	//log2.Printf("%+v", app.Mysql)
-	//log2.Printf("%+v", bootstrap.App.Mysql)
-	//log2.Printf("%+v", bootstrap.App.GetDB())
-
-	log.InitLogger()
-
-}
+// 注意：FirstInit 函数已移至 cmd/main.go，因为 utils 包不应该依赖应用层逻辑
+// 这样可以避免循环依赖问题
 
 func StructPrintf(v interface{}) {
 	b, _ := json.MarshalIndent(v, "", "  ")

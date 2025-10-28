@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/LucienVen/golang-auth-service/internal/constants"
 	"github.com/LucienVen/golang-auth-service/internal/entity"
 	"github.com/LucienVen/golang-auth-service/internal/validator"
 )
@@ -23,7 +24,7 @@ func (s *UserServiceImpl) GetUserStatus(ctx context.Context, userID uint) (int, 
 
 	// 检查是否被逻辑删除
 	if user.IsDelete > 0 {
-		return int(entity.UserStatusDeleted), nil
+		return int(constants.UserStatusDeleted), nil
 	}
 
 	return int(user.Status), nil
@@ -46,7 +47,7 @@ func (s *UserServiceImpl) UpdateLastLogin(ctx context.Context, userID uint, logi
 		return validator.NewValidationError("user_id", "用户已被删除", "user_deleted")
 	}
 
-	if user.Status == entity.UserStatusDisabled { // 禁用状态
+	if user.Status == constants.UserStatusDisabled { // 禁用状态
 		return validator.NewValidationError("user_id", "用户已被禁用", "user_disabled")
 	}
 
@@ -82,7 +83,7 @@ func (s *UserServiceImpl) DeactivateUser(ctx context.Context, userID uint) error
 
 	// 执行逻辑删除
 	user.IsDelete = 1
-	user.Status = entity.UserStatusDeleted
+	user.Status = constants.UserStatusDeleted
 	user.Updater = "deactivate_service"
 
 	// 保存更新
@@ -106,7 +107,7 @@ func (s *UserServiceImpl) ActivateUser(ctx context.Context, userID uint) error {
 	}
 
 	// 激活用户
-	user.Status = entity.UserStatusActive
+	user.Status = constants.UserStatusActive
 	user.IsDelete = 0 // 清除逻辑删除标记
 	user.Updater = "activate_service"
 
@@ -131,7 +132,7 @@ func (s *UserServiceImpl) DisableUser(ctx context.Context, userID uint) error {
 	}
 
 	// 禁用用户
-	user.Status = entity.UserStatusDisabled
+	user.Status = constants.UserStatusDisabled
 	user.Updater = "disable_service"
 
 	// 保存更新
@@ -149,7 +150,7 @@ func (s *UserServiceImpl) IsUserActive(ctx context.Context, userID uint) (bool, 
 		return false, err
 	}
 
-	return status == int(entity.UserStatusActive), nil
+	return status == int(constants.UserStatusActive), nil
 }
 
 // ValidateUserAccess 验证用户访问权限
@@ -166,11 +167,11 @@ func (s *UserServiceImpl) ValidateUserAccess(ctx context.Context, userID uint) e
 
 	// 检查用户状态
 	switch user.Status {
-	case entity.UserStatusInactive:
+	case constants.UserStatusInactive:
 		return validator.NewValidationError("user_id", "用户未激活", "user_not_activated")
-	case entity.UserStatusDisabled:
+	case constants.UserStatusDisabled:
 		return validator.NewValidationError("user_id", "用户已被禁用", "user_disabled")
-	case entity.UserStatusDeleted:
+	case constants.UserStatusDeleted:
 		return validator.NewValidationError("user_id", "用户已注销", "user_deleted")
 	}
 

@@ -7,21 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LucienVen/golang-auth-service/internal/constants"
 	"github.com/LucienVen/golang-auth-service/internal/utils"
 	"gorm.io/gorm"
-)
-
-// UserStatusInactive 表示用户未激活。
-// UserStatusActive 表示用户正常。
-// UserStatusDisabled 表示用户被禁用。
-// UserStatusLogout 表示用户已注销。
-// UserStatusDeleted 表示用户已删除。
-const (
-	UserStatusInactive int8 = 0 // 未激活
-	UserStatusActive   int8 = 1 // 正常
-	UserStatusDisabled int8 = 2 // 禁用
-	UserStatusLogout   int8 = 3 // 注销
-	UserStatusDeleted  int8 = 9 // 已删除
 )
 
 // User 用户实体
@@ -50,7 +38,7 @@ func NewUser(username, nickName, password, phone, email string) (*User, error) {
 		NickName:  nickName,
 		Phone:     phone,
 		Email:     email,
-		Status:    UserStatusInactive,
+		Status:    constants.UserStatusInactive,
 	}
 
 	// 验证并设置密码
@@ -70,7 +58,7 @@ func NewUserWithHash(username, nickName, passwordHash, phone, email string) *Use
 		PasswordHash: passwordHash,
 		Phone:        phone,
 		Email:        email,
-		Status:       UserStatusInactive,
+		Status:       constants.UserStatusInactive,
 	}
 }
 
@@ -84,21 +72,21 @@ const (
 
 // 用户状态转移表
 var userStatusTransitions = map[int8]map[string]int8{
-	UserStatusInactive: {
-		UserEventActivate: UserStatusActive, // 激活
+	constants.UserStatusInactive: {
+		UserEventActivate: constants.UserStatusActive, // 激活
 	},
-	UserStatusActive: {
-		UserEventDisable: UserStatusDisabled, // 封号
-		UserEventLogout:  UserStatusLogout,   // 注销
-		UserEventDelete:  UserStatusDeleted,  // 删除
+	constants.UserStatusActive: {
+		UserEventDisable: constants.UserStatusDisabled, // 封号
+		UserEventLogout:  constants.UserStatusLogout,   // 注销
+		UserEventDelete:  constants.UserStatusDeleted,  // 删除
 	},
-	UserStatusDisabled: {
-		UserEventActivate: UserStatusActive,  // 解封
-		UserEventDelete:   UserStatusDeleted, // 删除
+	constants.UserStatusDisabled: {
+		UserEventActivate: constants.UserStatusActive,  // 解封
+		UserEventDelete:   constants.UserStatusDeleted, // 删除
 	},
-	UserStatusLogout: {
-		UserEventActivate: UserStatusActive,  // 恢复
-		UserEventDelete:   UserStatusDeleted, // 删除
+	constants.UserStatusLogout: {
+		UserEventActivate: constants.UserStatusActive,  // 恢复
+		UserEventDelete:   constants.UserStatusDeleted, // 删除
 	},
 }
 
@@ -117,27 +105,27 @@ func (u *User) TransitionUserStatus(event string) bool {
 
 // IsActive 检查用户是否处于正常状态
 func (u *User) IsActive() bool {
-	return u.Status == UserStatusActive
+	return u.Status == constants.UserStatusActive
 }
 
 // IsInactive 检查用户是否未激活
 func (u *User) IsInactive() bool {
-	return u.Status == UserStatusInactive
+	return u.Status == constants.UserStatusInactive
 }
 
 // IsDisabled 检查用户是否被禁用
 func (u *User) IsDisabled() bool {
-	return u.Status == UserStatusDisabled
+	return u.Status == constants.UserStatusDisabled
 }
 
 // IsLogout 检查用户是否已注销
 func (u *User) IsLogout() bool {
-	return u.Status == UserStatusLogout
+	return u.Status == constants.UserStatusLogout
 }
 
 // IsDeleted 检查用户是否已删除
 func (u *User) IsDeleted() bool {
-	return u.Status == UserStatusDeleted
+	return u.Status == constants.UserStatusDeleted
 }
 
 // CanLogin 检查用户是否可以登录
@@ -319,7 +307,7 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 
 	// 设置默认状态
 	if u.Status == 0 {
-		u.Status = UserStatusInactive
+		u.Status = constants.UserStatusInactive
 	}
 
 	return nil

@@ -1,0 +1,285 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/LucienVen/golang-auth-service/internal/appcontext"
+	"github.com/LucienVen/golang-auth-service/internal/db"
+)
+
+// SessionService 会话管理服务接口
+type SessionService interface {
+	// StoreToken 存储用户令牌信息
+	StoreToken(ctx context.Context, userID string, tokenInfo *TokenInfo) error
+
+	// GetToken 获取用户当前活跃令牌
+	GetToken(ctx context.Context, userID string) (*TokenInfo, error)
+
+	// RemoveToken 移除用户令牌
+	RemoveToken(ctx context.Context, userID string) error
+
+	// AddTokenToBlacklist 将令牌加入黑名单
+	AddTokenToBlacklist(ctx context.Context, jti string, expiresAt time.Time) error
+
+	// IsTokenInBlacklist 检查令牌是否在黑名单中
+	IsTokenInBlacklist(ctx context.Context, jti string) (bool, error)
+
+	// RevokeUserSessions 撤销用户所有会话
+	RevokeUserSessions(ctx context.Context, userID string) error
+
+	// GetUserSessions 获取用户所有活跃会话
+	GetUserSessions(ctx context.Context, userID string) ([]*SessionInfo, error)
+
+	// GetActiveUsers 获取活跃用户数量
+	GetActiveUsers(ctx context.Context) (int64, error)
+
+	// CleanupExpiredSessions 清理过期会话
+	CleanupExpiredSessions(ctx context.Context) error
+}
+
+// TokenInfo 令牌信息
+type TokenInfo struct {
+	AccessToken  string    `json:"access_token"`
+	RefreshToken string    `json:"refresh_token"`
+	JTI          string    `json:"jti"`
+	DeviceID     string    `json:"device_id"`
+	UserAgent    string    `json:"user_agent"`
+	IPAddress    string    `json:"ip_address"`
+	CreatedAt    time.Time `json:"created_at"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	LastUsedAt   time.Time `json:"last_used_at"`
+}
+
+// SessionInfo 会话信息
+type SessionInfo struct {
+	SessionID  string    `json:"session_id"`
+	UserID     string    `json:"user_id"`
+	DeviceID   string    `json:"device_id"`
+	UserAgent  string    `json:"user_agent"`
+	IPAddress  string    `json:"ip_address"`
+	LoginTime  time.Time `json:"login_time"`
+	LastActive time.Time `json:"last_active"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	IsActive   bool      `json:"is_active"`
+}
+
+// SessionServiceImpl 会话服务实现
+type SessionServiceImpl struct {
+	// 暂时简化实现，不依赖 Redis
+}
+
+// NewSessionService 创建会话服务实例
+func NewSessionService(appCtx *appcontext.AppContext) SessionService {
+	return &SessionServiceImpl{}
+}
+
+// StoreToken 存储用户令牌信息（临时简化实现）
+func (s *SessionServiceImpl) StoreToken(ctx context.Context, userID string, tokenInfo *TokenInfo) error {
+	if tokenInfo == nil {
+		return fmt.Errorf("令牌信息不能为空")
+	}
+
+	// TODO: 实现 Redis 存储
+	// 临时实现：仅返回成功
+	return nil
+}
+
+// GetToken 获取用户当前活跃令牌
+func (s *SessionServiceImpl) GetToken(ctx context.Context, userID string) (*TokenInfo, error) {
+	tokenKey := fmt.Sprintf("auth:token:%s", userID)
+
+	result, err := s.redis.GetRedis().Get(ctx, tokenKey).Result()
+	if err != nil {
+		if err.Error() == "redis: nil" {
+			return nil, fmt.Errorf("用户令牌不存在")
+		}
+		return nil, fmt.Errorf("获取用户令牌失败: %w", err)
+	}
+
+	var tokenInfo TokenInfo
+	if err := json.Unmarshal([]byte(result), &tokenInfo); err != nil {
+		return nil, fmt.Errorf("反序列化令牌信息失败: %w", err)
+	}
+
+	return &tokenInfo, nil
+}
+
+// RemoveToken 移除用户令牌
+func (s *SessionServiceImpl) RemoveToken(ctx context.Context, userID string) error {
+	tokenKey := fmt.Sprintf("auth:token:%s", userID)
+
+	// 先获取令牌信息以便清理相关会话
+	tokenInfo, err := s.GetToken(ctx, userID)
+	if err != nil {
+		// 如果令牌不存在，也认为是成功的
+		return nil
+	}
+
+	// 删除用户令牌
+	if err := s.redis.GetRedis().Del(ctx, tokenKey).Err(); err != nil {
+		return fmt.Errorf("删除用户令牌失败: %w", err)
+	}
+
+	// 删除相关会话信息
+	sessionKey := fmt.Sprintf("session:user:%s:%s", userID, tokenInfo.DeviceID)
+	if err := s.redis.GetRedis().Del(ctx, sessionKey).Err(); err != nil {
+		return fmt.Errorf("删除会话信息失败: %w", err)
+	}
+
+	return nil
+}
+
+// AddTokenToBlacklist 将令牌加入黑名单
+func (s *SessionServiceImpl) AddTokenToBlacklist(ctx context.Context, jti string, expiresAt time.Time) error {
+	blacklistKey := fmt.Sprintf("auth:blacklist:%s", jti)
+
+	expiresIn := time.Until(expiresAt)
+	if expiresIn <= 0 {
+		// 如果令牌已过期，不需要加入黑名单
+		return nil
+	}
+
+	// 使用简单的值"1"表示黑名单
+	if err := s.redis.GetRedis().Set(ctx, blacklistKey, "1", expiresIn).Err(); err != nil {
+		return fmt.Errorf("将令牌加入黑名单失败: %w", err)
+	}
+
+	return nil
+}
+
+// IsTokenInBlacklist 检查令牌是否在黑名单中
+func (s *SessionServiceImpl) IsTokenInBlacklist(ctx context.Context, jti string) (bool, error) {
+	blacklistKey := fmt.Sprintf("auth:blacklist:%s", jti)
+
+	result, err := s.redis.GetRedis().Get(ctx, blacklistKey).Result()
+	if err != nil {
+		if err.Error() == "redis: nil" {
+			return false, nil // 不在黑名单中
+		}
+		return false, fmt.Errorf("检查令牌黑名单状态失败: %w", err)
+	}
+
+	// 如果能获取到值，说明在黑名单中
+	return result == "1", nil
+}
+
+// RevokeUserSessions 撤销用户所有会话
+func (s *SessionServiceImpl) RevokeUserSessions(ctx context.Context, userID string) error {
+	// 获取用户所有会话
+	sessions, err := s.GetUserSessions(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取用户会话失败: %w", err)
+	}
+
+	// 撤销每个会话
+	for _, session := range sessions {
+		// 将令牌加入黑名单
+		if err := s.AddTokenToBlacklist(ctx, session.SessionID, session.ExpiresAt); err != nil {
+			return fmt.Errorf("撤销会话 %s 失败: %w", session.SessionID, err)
+		}
+
+		// 删除会话信息
+		sessionKey := fmt.Sprintf("session:user:%s:%s", userID, session.DeviceID)
+		if err := s.redis.GetRedis().Del(ctx, sessionKey).Err(); err != nil {
+			return fmt.Errorf("删除会话 %s 失败: %w", session.SessionID, err)
+		}
+	}
+
+	// 删除用户当前令牌
+	if err := s.RemoveToken(ctx, userID); err != nil {
+		return fmt.Errorf("删除用户令牌失败: %w", err)
+	}
+
+	return nil
+}
+
+// GetUserSessions 获取用户所有活跃会话
+func (s *SessionServiceImpl) GetUserSessions(ctx context.Context, userID string) ([]*SessionInfo, error) {
+	// 使用模式匹配获取用户所有会话键
+	pattern := fmt.Sprintf("session:user:%s:*", userID)
+
+	keys, err := s.redis.GetRedis().Keys(ctx, pattern).Result()
+	if err != nil {
+		return nil, fmt.Errorf("获取会话键失败: %w", err)
+	}
+
+	var sessions []*SessionInfo
+	for _, key := range keys {
+		result, err := s.redis.GetRedis().Get(ctx, key).Result()
+		if err != nil {
+			if err.Error() == "redis: nil" {
+				continue // 跳过已过期的会话
+			}
+			return nil, fmt.Errorf("获取会话信息失败: %w", err)
+		}
+
+		var session SessionInfo
+		if err := json.Unmarshal([]byte(result), &session); err != nil {
+			continue // 跳过无效的会话数据
+		}
+
+		sessions = append(sessions, &session)
+	}
+
+	return sessions, nil
+}
+
+// GetActiveUsers 获取活跃用户数量
+func (s *SessionServiceImpl) GetActiveUsers(ctx context.Context) (int64, error) {
+	// 使用模式匹配获取所有用户令牌键
+	pattern := "auth:token:*"
+
+	keys, err := s.redis.GetRedis().Keys(ctx, pattern).Result()
+	if err != nil {
+		return 0, fmt.Errorf("获取活跃用户失败: %w", err)
+	}
+
+	return int64(len(keys)), nil
+}
+
+// CleanupExpiredSessions 清理过期会话
+func (s *SessionServiceImpl) CleanupExpiredSessions(ctx context.Context) error {
+	// Redis会自动清理过期的键，这里主要是清理一些可能的数据不一致问题
+
+	// 获取所有会话键
+	pattern := "session:user:*"
+	keys, err := s.redis.GetRedis().Keys(ctx, pattern).Result()
+	if err != nil {
+		return fmt.Errorf("获取会话键失败: %w", err)
+	}
+
+	cleanedCount := 0
+	for _, key := range keys {
+		result, err := s.redis.GetRedis().Get(ctx, key).Result()
+		if err != nil {
+			if err.Error() == "redis: nil" {
+				// 键已过期，Redis会自动清理，但我们手动删除一下以确保
+				s.redis.GetRedis().Del(ctx, key)
+				cleanedCount++
+			}
+			continue
+		}
+
+		var session SessionInfo
+		if err := json.Unmarshal([]byte(result), &session); err != nil {
+			// 无效的会话数据，删除
+			s.redis.GetRedis().Del(ctx, key)
+			cleanedCount++
+			continue
+		}
+
+		// 检查会话是否过期
+		if time.Now().After(session.ExpiresAt) {
+			s.redis.GetRedis().Del(ctx, key)
+			cleanedCount++
+		}
+	}
+
+	// 返回清理的会话数量（这里可以记录日志）
+	_ = cleanedCount
+
+	return nil
+}

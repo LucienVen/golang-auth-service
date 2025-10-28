@@ -1,0 +1,369 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/LucienVen/golang-auth-service/internal/appcontext"
+	"github.com/LucienVen/golang-auth-service/internal/errors"
+	"github.com/LucienVen/golang-auth-service/internal/request"
+	"github.com/LucienVen/golang-auth-service/internal/response"
+	"github.com/LucienVen/golang-auth-service/internal/utils"
+)
+
+// AuthService 认证服务接口
+type AuthService interface {
+	// Login 用户登录
+	Login(ctx context.Context, req *request.LoginRequest) (*response.LoginResponse, error)
+
+	// Register 用户注册
+	Register(ctx context.Context, req *request.RegisterRequest) (*response.RegisterResponse, error)
+
+	// Logout 用户登出
+	Logout(ctx context.Context, tokenString string) error
+
+	// RefreshToken 刷新令牌
+	RefreshToken(ctx context.Context, refreshToken string) (*response.RefreshTokenResponse, error)
+
+	// ValidateToken 验证令牌
+	ValidateToken(ctx context.Context, tokenString string) (*response.UserResponse, error)
+
+	// GetProfile 获取用户信息
+	GetProfile(ctx context.Context, userID string) (*response.UserResponse, error)
+
+	// GetSessions 获取用户会话列表
+	GetSessions(ctx context.Context, userID string) ([]*response.SessionResponse, error)
+
+	// RevokeSession 撤销指定会话
+	RevokeSession(ctx context.Context, userID, sessionID string) error
+
+	// RevokeAllSessions 撤销用户所有会话
+	RevokeAllSessions(ctx context.Context, userID string) error
+}
+
+// AuthServiceImpl 认证服务实现
+type AuthServiceImpl struct {
+	userService    UserService
+	jwtService     JWTService
+	sessionService SessionService
+}
+
+// NewAuthService 创建认证服务实例
+func NewAuthService(appCtx *appcontext.AppContext) AuthService {
+	return &AuthServiceImpl{
+		userService:    NewUserService(appCtx),
+		jwtService:     NewJWTService(),
+		sessionService: NewSessionService(appCtx),
+	}
+}
+
+// Login 用户登录
+func (s *AuthServiceImpl) Login(ctx context.Context, req *request.LoginRequest) (*response.LoginResponse, error) {
+	// 验证登录请求
+	if err := req.Validate(); err != nil {
+		return nil, errors.NewValidationError(err.Error())
+	}
+
+	// 根据账号查询用户
+	user, err := s.userService.GetUserByAccount(ctx, req.Account)
+	if err != nil {
+		return nil, errors.NewUserNotFoundError("用户不存在")
+	}
+
+	// 检查用户状态
+	if !user.IsActive() {
+		return nil, errors.NewUserDisabledError("用户账号已被禁用")
+	}
+
+	// 验证密码
+	if err := user.VerifyPassword(req.Password); err != nil {
+		return nil, errors.NewInvalidCredentialsError("密码错误")
+	}
+
+	// 生成令牌对
+	tokenPair, err := s.jwtService.GenerateTokenPair(user.ID, user.Username)
+	if err != nil {
+		return nil, errors.NewTokenGenerationError("生成令牌失败: " + err.Error())
+	}
+
+	// 创建令牌信息
+	tokenInfo := &TokenInfo{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		JTI:          s.extractJTI(tokenPair.AccessToken),
+		DeviceID:     req.DeviceID,
+		UserAgent:    req.UserAgent,
+		IPAddress:    req.IPAddress,
+		CreatedAt:    time.Now(),
+		ExpiresAt:    tokenPair.ExpiresAt,
+		LastUsedAt:   time.Now(),
+	}
+
+	// 存储令牌信息
+	if err := s.sessionService.StoreToken(ctx, user.ID, tokenInfo); err != nil {
+		return nil, errors.NewSessionError("存储会话失败: " + err.Error())
+	}
+
+	// 更新用户最后登录时间
+	if err := s.userService.UpdateLastLogin(ctx, user.ID); err != nil {
+		// 记录警告但不影响登录流程
+		fmt.Printf("警告: 更新用户最后登录时间失败: %v\n", err)
+	}
+
+	// 构建响应
+	userResponse := response.ToUserResponse(user)
+	loginResponse := &response.LoginResponse{
+		User:         userResponse,
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		TokenType:    tokenPair.TokenType,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		ExpiresAt:    tokenPair.ExpiresAt,
+	}
+
+	return loginResponse, nil
+}
+
+// Register 用户注册
+func (s *AuthServiceImpl) Register(ctx context.Context, req *request.RegisterRequest) (*response.RegisterResponse, error) {
+	// 验证注册请求
+	if err := req.Validate(); err != nil {
+		return nil, errors.NewValidationError(err.Error())
+	}
+
+	// 检查账号是否已存在
+	exists, err := s.userService.CheckAccountExists(ctx, req.GetAccount())
+	if err != nil {
+		return nil, errors.NewInternalError("检查账号失败: " + err.Error())
+	}
+	if exists {
+		return nil, errors.NewUserExistsError("账号已存在")
+	}
+
+	// 创建用户
+	createReq := &request.CreateUserRequest{
+		Username: req.Username,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Password: req.Password,
+	}
+
+	user, err := s.userService.CreateUser(ctx, createReq)
+	if err != nil {
+		return nil, errors.NewUserCreationError("创建用户失败: " + err.Error())
+	}
+
+	// 生成令牌对
+	tokenPair, err := s.jwtService.GenerateTokenPair(user.ID, user.Username)
+	if err != nil {
+		return nil, errors.NewTokenGenerationError("生成令牌失败: " + err.Error())
+	}
+
+	// 创建令牌信息
+	tokenInfo := &TokenInfo{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		JTI:          s.extractJTI(tokenPair.AccessToken),
+		DeviceID:     req.DeviceID,
+		UserAgent:    req.UserAgent,
+		IPAddress:    req.IPAddress,
+		CreatedAt:    time.Now(),
+		ExpiresAt:    tokenPair.ExpiresAt,
+		LastUsedAt:   time.Now(),
+	}
+
+	// 存储令牌信息
+	if err := s.sessionService.StoreToken(ctx, user.ID, tokenInfo); err != nil {
+		return nil, errors.NewSessionError("存储会话失败: " + err.Error())
+	}
+
+	// 构建响应
+	userResponse := response.ToUserResponse(user)
+	registerResponse := &response.RegisterResponse{
+		User:         userResponse,
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		TokenType:    tokenPair.TokenType,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		ExpiresAt:    tokenPair.ExpiresAt,
+	}
+
+	return registerResponse, nil
+}
+
+// Logout 用户登出
+func (s *AuthServiceImpl) Logout(ctx context.Context, tokenString string) error {
+	// 验证令牌
+	claims, err := s.jwtService.ValidateToken(tokenString)
+	if err != nil {
+		return errors.NewInvalidTokenError("无效的令牌: " + err.Error())
+	}
+
+	// 将令牌加入黑名单
+	if err := s.jwtService.RevokeToken(claims.JTI); err != nil {
+		return errors.NewTokenRevocationError("撤销令牌失败: " + err.Error())
+	}
+
+	// 使用会话服务将令牌加入黑名单
+	if err := s.sessionService.AddTokenToBlacklist(ctx, claims.JTI, claims.ExpiresAt.Time); err != nil {
+		return errors.NewSessionError("会话登出失败: " + err.Error())
+	}
+
+	// 移除用户当前令牌
+	if err := s.sessionService.RemoveToken(ctx, claims.UserID); err != nil {
+		// 记录警告但不影响登出流程
+		fmt.Printf("警告: 移除用户令牌失败: %v\n", err)
+	}
+
+	return nil
+}
+
+// RefreshToken 刷新令牌
+func (s *AuthServiceImpl) RefreshToken(ctx context.Context, refreshToken string) (*response.RefreshTokenResponse, error) {
+	// 使用JWT服务刷新令牌
+	tokenPair, err := s.jwtService.RefreshToken(refreshToken)
+	if err != nil {
+		return nil, errors.NewTokenRefreshError("刷新令牌失败: " + err.Error())
+	}
+
+	// 从刷新令牌中提取用户信息
+	claims, err := s.jwtService.ValidateToken(refreshToken)
+	if err != nil {
+		return nil, errors.NewInvalidTokenError("无效的刷新令牌: " + err.Error())
+	}
+
+	// 创建新的令牌信息
+	tokenInfo := &TokenInfo{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		JTI:          s.extractJTI(tokenPair.AccessToken),
+		DeviceID:     "refresh", // 刷新令牌的设备标识
+		UserAgent:    "token-refresh",
+		IPAddress:    "",
+		CreatedAt:    time.Now(),
+		ExpiresAt:    tokenPair.ExpiresAt,
+		LastUsedAt:   time.Now(),
+	}
+
+	// 存储新的令牌信息
+	if err := s.sessionService.StoreToken(ctx, claims.UserID, tokenInfo); err != nil {
+		return nil, errors.NewSessionError("存储新会话失败: " + err.Error())
+	}
+
+	// 构建响应
+	refreshResponse := &response.RefreshTokenResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		TokenType:    tokenPair.TokenType,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		ExpiresAt:    tokenPair.ExpiresAt,
+	}
+
+	return refreshResponse, nil
+}
+
+// ValidateToken 验证令牌
+func (s *AuthServiceImpl) ValidateToken(ctx context.Context, tokenString string) (*response.UserResponse, error) {
+	// 验证令牌
+	claims, err := s.jwtService.ValidateToken(tokenString)
+	if err != nil {
+		return nil, errors.NewInvalidTokenError("无效的令牌: " + err.Error())
+	}
+
+	// 获取用户信息
+	user, err := s.userService.GetUserByID(ctx, claims.UserID)
+	if err != nil {
+		return nil, errors.NewUserNotFoundError("用户不存在")
+	}
+
+	// 检查用户状态
+	if !user.IsActive() {
+		return nil, errors.NewUserDisabledError("用户账号已被禁用")
+	}
+
+	// 构建响应
+	userResponse := response.ToUserResponse(user)
+	return userResponse, nil
+}
+
+// GetProfile 获取用户信息
+func (s *AuthServiceImpl) GetProfile(ctx context.Context, userID string) (*response.UserResponse, error) {
+	user, err := s.userService.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, errors.NewUserNotFoundError("用户不存在")
+	}
+
+	userResponse := response.ToUserResponse(user)
+	return userResponse, nil
+}
+
+// GetSessions 获取用户会话列表
+func (s *AuthServiceImpl) GetSessions(ctx context.Context, userID string) ([]*response.SessionResponse, error) {
+	sessions, err := s.sessionService.GetUserSessions(ctx, userID)
+	if err != nil {
+		return nil, errors.NewSessionError("获取用户会话失败: " + err.Error())
+	}
+
+	var sessionResponses []*response.SessionResponse
+	for _, session := range sessions {
+		sessionResponse := &response.SessionResponse{
+			SessionID:  session.SessionID,
+			DeviceID:   session.DeviceID,
+			UserAgent:  session.UserAgent,
+			IPAddress:  session.IPAddress,
+			LoginTime:  session.LoginTime,
+			LastActive: session.LastActive,
+			ExpiresAt:  session.ExpiresAt,
+			IsActive:   session.IsActive,
+		}
+		sessionResponses = append(sessionResponses, sessionResponse)
+	}
+
+	return sessionResponses, nil
+}
+
+// RevokeSession 撤销指定会话
+func (s *AuthServiceImpl) RevokeSession(ctx context.Context, userID, sessionID string) error {
+	// 将令牌加入黑名单
+	if err := s.sessionService.AddTokenToBlacklist(ctx, sessionID, time.Now().Add(time.Hour*24)); err != nil {
+		return errors.NewSessionError("撤销会话失败: " + err.Error())
+	}
+
+	// TODO: 这里需要根据sessionID找到对应的device_id并删除特定会话
+	// 当前实现是撤销所有会话的简化版本
+	return s.RevokeAllSessions(ctx, userID)
+}
+
+// RevokeAllSessions 撤销用户所有会话
+func (s *AuthServiceImpl) RevokeAllSessions(ctx context.Context, userID string) error {
+	if err := s.sessionService.RevokeUserSessions(ctx, userID); err != nil {
+		return errors.NewSessionError("撤销用户所有会话失败: " + err.Error())
+	}
+
+	return nil
+}
+
+// extractJTI 从令牌中提取JTI
+func (s *AuthServiceImpl) extractJTI(tokenString string) string {
+	jti, _ := s.jwtService.ExtractJTI(tokenString)
+	return jti
+}
+
+// LoginFrequency 登录频率限制
+type LoginFrequency struct {
+	MaxAttempts int           // 最大尝试次数
+	Window      time.Duration // 时间窗口
+	BlockTime   time.Duration // 封锁时间
+}
+
+// CheckLoginFrequency 检查登录频率
+func (s *AuthServiceImpl) CheckLoginFrequency(ctx context.Context, identifier string) error {
+	// TODO: 实现基于Redis的登录频率限制
+	// 键格式: rate_limit:login:{identifier} = {count,timestamp}
+	// 可以使用Redis的INCR和EXPIRE实现滑动窗口算法
+
+	// 当前返回nil，表示不限制
+	// 在后续实现中会集成Redis频率限制功能
+	return nil
+}
