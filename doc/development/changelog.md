@@ -44,6 +44,39 @@ CL-YYYYMMDD-HHMMSS-XXXX
 
 ## 📝 变更记录
 
+### 2025-10-29 变更记录
+
+#### 重大架构优化和功能完善
+
+**ID**: `CL-20251029-160000-0001`
+**时间戳**: 2025-10-29 16:00:00
+**变更类型**: [MOD][ADD][FIX][DEL]
+**模块**: 整体架构、中间件、路由管理、日志系统
+**描述**: 完成Controller层集成修复、路由架构重构、UUID生成改进、日志中间件增强、中间件顺序优化
+**文件**:
+- `internal/controller/container.go` - 修复AuthController集成
+- `api/router.go` - 重构路由架构，统一路由管理
+- `api/handler.go` - 移除重复功能，标记为废弃
+- `internal/middleware/auth_middleware.go` - 实现真正的UUID v4生成
+- `internal/middleware/logger.go` - 增强日志中间件，集成requestID和用户上下文
+- `go.mod` - 添加github.com/google/uuid依赖
+- `doc/project/revised-plan-2025-10-29.md` - 新增项目状态评估报告
+- `cmd/test/` - 删除冗余测试目录
+**影响**:
+- 修复了Controller层未集成的关键问题，使所有认证API正常工作
+- 统一了路由管理架构，符合Go项目标准
+- 提升了系统可观测性，每个请求都有唯一的可追踪ID
+- 消除了中间件执行顺序导致的潜在panic风险
+**测试**:
+- 所有认证API端点测试通过
+- UUID生成验证通过
+- 日志输出验证通过
+- 中间件顺序修复验证通过
+**回退**: 如需回退，恢复之前的`internal/router/`目录和相关路由配置
+**Git Commit**: 待提交
+
+---
+
 ### 初始化变更
 
 **ID**: `CL-20241027-000000-0001`

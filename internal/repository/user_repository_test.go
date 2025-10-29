@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/LucienVen/golang-auth-service/internal/constants"
 	"github.com/LucienVen/golang-auth-service/internal/entity"
 	"github.com/LucienVen/golang-auth-service/internal/utils"
 	"gorm.io/driver/sqlite"
@@ -184,7 +186,7 @@ func TestUserRepository_Update(t *testing.T) {
 
 	// 修改用户信息
 	testUser.NickName = "新昵称"
-	testUser.Status = entity.UserStatusActive
+	testUser.Status = constants.UserStatusActive
 
 	// 测试更新
 	err := repo.Update(testUser)
@@ -275,13 +277,13 @@ func TestUserRepository_ListByStatus(t *testing.T) {
 	user2 := createTestUser(t, db, "user2", "user2@example.com", "13812345679", "Password123")
 
 	// 修改用户状态
-	user1.Status = entity.UserStatusActive
-	user2.Status = entity.UserStatusInactive
+	user1.Status = constants.UserStatusActive
+	user2.Status = constants.UserStatusInactive
 	repo.Update(user1)
 	repo.Update(user2)
 
 	// 测试查询活跃用户
-	users, err := repo.ListByStatus(entity.UserStatusActive, 10, 0)
+	users, err := repo.ListByStatus(constants.UserStatusActive, 10, 0)
 	if err != nil {
 		t.Errorf("查询活跃用户失败: %v", err)
 	}
@@ -396,11 +398,11 @@ func TestUserRepository_CountByStatus(t *testing.T) {
 
 	// 创建测试用户
 	user := createTestUser(t, db, "testuser", "test@example.com", "13812345678", "Password123")
-	user.Status = entity.UserStatusActive
+	user.Status = constants.UserStatusActive
 	repo.Update(user)
 
 	// 测试统计
-	count, err := repo.CountByStatus(entity.UserStatusActive)
+	count, err := repo.CountByStatus(constants.UserStatusActive)
 	if err != nil {
 		t.Errorf("统计用户数量失败: %v", err)
 	}
@@ -417,8 +419,8 @@ func TestUserRepository_GetStatusDistribution(t *testing.T) {
 	user1 := createTestUser(t, db, "user1", "user1@example.com", "13812345678", "Password123")
 	user2 := createTestUser(t, db, "user2", "user2@example.com", "13812345679", "Password123")
 
-	user1.Status = entity.UserStatusActive
-	user2.Status = entity.UserStatusInactive
+	user1.Status = constants.UserStatusActive
+	user2.Status = constants.UserStatusInactive
 	repo.Update(user1)
 	repo.Update(user2)
 
@@ -428,12 +430,12 @@ func TestUserRepository_GetStatusDistribution(t *testing.T) {
 		t.Errorf("获取状态分布失败: %v", err)
 	}
 
-	if distribution[entity.UserStatusActive] != 1 {
-		t.Errorf("活跃用户数量不正确，期望: 1, 实际: %d", distribution[entity.UserStatusActive])
+	if distribution[constants.UserStatusActive] != 1 {
+		t.Errorf("活跃用户数量不正确，期望: 1, 实际: %d", distribution[constants.UserStatusActive])
 	}
 
-	if distribution[entity.UserStatusInactive] != 1 {
-		t.Errorf("非活跃用户数量不正确，期望: 1, 实际: %d", distribution[entity.UserStatusInactive])
+	if distribution[constants.UserStatusInactive] != 1 {
+		t.Errorf("非活跃用户数量不正确，期望: 1, 实际: %d", distribution[constants.UserStatusInactive])
 	}
 }
 
@@ -458,7 +460,7 @@ func TestUserRepository_WithTransaction(t *testing.T) {
 		}
 
 		// 在事务中更新用户
-		user.Status = entity.UserStatusActive
+		user.Status = constants.UserStatusActive
 		if err := txRepo.Update(user); err != nil {
 			return err
 		}
@@ -476,8 +478,8 @@ func TestUserRepository_WithTransaction(t *testing.T) {
 		t.Errorf("查询事务中的用户失败: %v", err)
 	}
 
-	if user.Status != entity.UserStatusActive {
-		t.Errorf("用户状态不正确，期望: %d, 实际: %d", entity.UserStatusActive, user.Status)
+	if user.Status != constants.UserStatusActive {
+		t.Errorf("用户状态不正确，期望: %d, 实际: %d", constants.UserStatusActive, user.Status)
 	}
 }
 
@@ -510,7 +512,7 @@ func TestUserRepository_Integration(t *testing.T) {
 		}
 
 		// 3. 更新用户状态
-		user.Status = entity.UserStatusActive
+		user.Status = constants.UserStatusActive
 		user.UpdateLastLogin()
 		err = repo.Update(user)
 		if err != nil {

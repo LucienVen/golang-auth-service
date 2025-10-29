@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/LucienVen/golang-auth-service/internal/errors"
 	"github.com/LucienVen/golang-auth-service/internal/response"
 	"github.com/LucienVen/golang-auth-service/internal/service"
@@ -205,8 +206,8 @@ func generateRequestID() string {
 	return "req-" + strings.ReplaceAll(generateUUID(), "-", "")
 }
 
-// generateUUID 生成UUID（简化版本）
+// generateUUID 生成UUID v4
 func generateUUID() string {
-	// 这里简化实现，生产环境应该使用crypto/rand或其他UUID库
-	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+	// 使用Google UUID库生成真正的UUID v4
+	return uuid.New().String()
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/LucienVen/golang-auth-service/internal/constants"
 	"github.com/LucienVen/golang-auth-service/internal/entity"
 	"gorm.io/gorm"
 )
@@ -187,7 +188,7 @@ func (r *UserRepositoryImpl) ListByStatus(status int8, limit, offset int) ([]*en
 
 // ListActive 查询所有活跃用户
 func (r *UserRepositoryImpl) ListActive(limit, offset int) ([]*entity.User, error) {
-	return r.ListByStatus(entity.UserStatusActive, limit, offset)
+	return r.ListByStatus(constants.UserStatusActive, limit, offset)
 }
 
 // CountByStatus 统计指定状态的用户数量
