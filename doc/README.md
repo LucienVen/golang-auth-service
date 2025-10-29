@@ -8,6 +8,7 @@
 
 - **[项目开发计划](project/plan.md)** - 详细的项目实施计划和MVP功能规划
 - **[架构分析报告](project/architecture-analysis.md)** - 项目技术架构和依赖关系分析
+- **[项目状态评估报告](project/revised-plan-2025-10-29.md)** - 最新项目状态评估和修订计划
 
 ### 🛠️ 开发规范 (`development/`)
 
@@ -39,8 +40,9 @@
 ### 开发流程
 1. 首先阅读 [项目开发计划](project/plan.md) 了解整体规划
 2. 查看 [架构分析报告](project/architecture-analysis.md) 理解技术架构
-3. 参考 [开发指南](development/claude.md) 遵循编码规范
-4. 在 [变更日志](development/changelog.md) 中跟踪开发进度
+3. 参考 [项目状态评估报告](project/revised-plan-2025-10-29.md) 了解最新进度
+4. 参考 [开发指南](development/claude.md) 遵循编码规范
+5. 在 [变更日志](development/changelog.md) 中跟踪开发进度
 
 ### 模块开发
 - 各功能模块的详细文档位于对应的 `modules/` 子目录中
@@ -54,5 +56,5 @@
 
 ---
 
-**最后更新**: 2025-10-28
+**最后更新**: 2025-10-29
 **维护者**: Claude Code Development Team
