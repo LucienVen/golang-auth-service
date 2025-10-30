@@ -23,10 +23,6 @@ func NewAuthController(authService service.AuthService) *AuthController {
 	}
 }
 
-// GetAuthService 获取认证服务
-func (ctrl *AuthController) GetAuthService() service.AuthService {
-	return ctrl.authService
-}
 
 // Login 用户登录
 // @Summary 用户登录
