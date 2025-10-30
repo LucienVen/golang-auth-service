@@ -8,6 +8,7 @@ import (
 	"github.com/LucienVen/golang-auth-service/internal/errors"
 	"github.com/LucienVen/golang-auth-service/internal/request"
 	"github.com/LucienVen/golang-auth-service/internal/response"
+	"github.com/LucienVen/golang-auth-service/pkg/auth"
 )
 
 // AuthService 认证服务接口（简化版本）
@@ -45,14 +46,29 @@ type AuthServiceImpl struct {
 	userService    UserService
 	jwtService     JWTService
 	sessionService SessionService
+	validator      *auth.TokenValidator // 统一验证器
 }
 
 // NewAuthService 创建认证服务实例
 func NewAuthService(appCtx *appcontext.AppContext) AuthService {
+	jwtService := NewJWTService()
+	validator := auth.NewTokenValidator(jwtService)
+
+	return &AuthServiceImpl{
+		userService:    &UserServiceImpl{}, // 简化实现，不依赖外部依赖
+		jwtService:     jwtService,
+		sessionService: NewSessionService(appCtx),
+		validator:      validator,
+	}
+}
+
+// NewAuthServiceWithValidator 使用外部验证器创建认证服务实例
+func NewAuthServiceWithValidator(validator *auth.TokenValidator, appCtx *appcontext.AppContext) AuthService {
 	return &AuthServiceImpl{
 		userService:    &UserServiceImpl{}, // 简化实现，不依赖外部依赖
 		jwtService:     NewJWTService(),
 		sessionService: NewSessionService(appCtx),
+		validator:      validator,
 	}
 }
 
@@ -167,21 +183,8 @@ func (s *AuthServiceImpl) RefreshToken(ctx context.Context, refreshToken string)
 
 // ValidateToken 验证令牌
 func (s *AuthServiceImpl) ValidateToken(ctx context.Context, tokenString string) (*response.UserResponse, error) {
-	// 验证令牌
-	claims, err := s.jwtService.ValidateToken(tokenString)
-	if err != nil {
-		return nil, errors.NewInvalidTokenError("无效的令牌: " + err.Error())
-	}
-
-	// TODO: 实现用户信息获取
-	// 临时实现：返回测试用户
-	userResponse := &response.UserResponse{
-		ID:       claims.UserID,
-		Username: claims.Username,
-		Status:   1, // 活跃状态
-	}
-
-	return userResponse, nil
+	// 使用统一验证器验证令牌
+	return s.validator.ValidateTokenString(ctx, tokenString)
 }
 
 // GetProfile 获取用户信息

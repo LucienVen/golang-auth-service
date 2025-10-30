@@ -6,6 +6,8 @@ import (
 	"github.com/LucienVen/golang-auth-service/internal/appcontext"
 	"github.com/LucienVen/golang-auth-service/internal/controller"
 	"github.com/LucienVen/golang-auth-service/internal/middleware"
+	"github.com/LucienVen/golang-auth-service/internal/service"
+	"github.com/LucienVen/golang-auth-service/pkg/auth"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,6 +15,7 @@ import (
 type Router struct {
 	engine      *gin.Engine
 	controllers *controller.Container
+	validator   *auth.TokenValidator // 统一管理TokenValidator实例
 }
 
 // NewRouter 创建路由管理器
@@ -20,9 +23,17 @@ func NewRouter(appCtx *appcontext.AppContext) *Router {
 	// 创建 Gin 引擎
 	engine := gin.New()
 
+	// 创建JWT服务和统一验证器
+	jwtService := service.NewJWTService()
+	validator := auth.NewTokenValidator(jwtService)
+
+	// 创建控制器容器，注入验证器
+	controllers := controller.NewContainerWithValidator(appCtx, validator)
+
 	return &Router{
 		engine:      engine,
-		controllers: controller.NewContainer(appCtx),
+		controllers: controllers,
+		validator:   validator, // 保存验证器实例用于创建Middleware
 	}
 }
 
@@ -57,8 +68,8 @@ func (r *Router) setupMiddleware() {
 
 // setupAuthRoutes 设置认证相关路由
 func (r *Router) setupAuthRoutes() {
-	// 创建认证中间件
-	authMiddleware := middleware.NewAuthMiddleware(r.controllers.Auth.GetAuthService())
+	// 创建认证中间件 - 使用Router中的统一验证器
+	authMiddleware := middleware.NewAuthMiddleware(r.validator)
 
 	// API版本组
 	v1 := r.engine.Group("/api/v1")
@@ -119,8 +130,8 @@ func (r *Router) setupAPIRoutes() {
 
 // setupTestRoutes 设置测试路由（仅用于开发环境）
 func (r *Router) setupTestRoutes() {
-	// 创建认证中间件
-	authMiddleware := middleware.NewAuthMiddleware(r.controllers.Auth.GetAuthService())
+	// 创建认证中间件 - 使用Router中的统一验证器
+	authMiddleware := middleware.NewAuthMiddleware(r.validator)
 
 	test := r.engine.Group("/test")
 	{

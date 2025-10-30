@@ -8,50 +8,26 @@ import (
 	"github.com/google/uuid"
 	"github.com/LucienVen/golang-auth-service/internal/errors"
 	"github.com/LucienVen/golang-auth-service/internal/response"
-	"github.com/LucienVen/golang-auth-service/internal/service"
+	"github.com/LucienVen/golang-auth-service/pkg/auth"
 )
 
 // AuthMiddleware JWT认证中间件
 type AuthMiddleware struct {
-	authService service.AuthService
+	validator *auth.TokenValidator // 使用统一验证器
 }
 
 // NewAuthMiddleware 创建认证中间件
-func NewAuthMiddleware(authService service.AuthService) *AuthMiddleware {
+func NewAuthMiddleware(validator *auth.TokenValidator) *AuthMiddleware {
 	return &AuthMiddleware{
-		authService: authService,
+		validator: validator,
 	}
 }
 
 // RequireAuth 需要认证的中间件
 func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取Authorization头
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			response.Error(c, errors.ErrCodeUnauthorized, "缺少认证令牌")
-			c.Abort()
-			return
-		}
-
-		// 检查Bearer前缀
-		const bearerPrefix = "Bearer "
-		if !strings.HasPrefix(authHeader, bearerPrefix) {
-			response.Error(c, errors.ErrCodeUnauthorized, "无效的令牌格式")
-			c.Abort()
-			return
-		}
-
-		// 提取令牌
-		tokenString := authHeader[len(bearerPrefix):]
-		if tokenString == "" {
-			response.Error(c, errors.ErrCodeUnauthorized, "令牌不能为空")
-			c.Abort()
-			return
-		}
-
-		// 验证令牌
-		userResponse, err := m.authService.ValidateToken(c.Request.Context(), tokenString)
+		// 使用统一验证器验证令牌
+		userResponse, err := m.validator.ValidateTokenFromRequest(c.Request.Context(), c.Request)
 		if err != nil {
 			response.Error(c, errors.ErrCodeUnauthorized, "无效的令牌")
 			c.Abort()
@@ -70,30 +46,10 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 // OptionalAuth 可选认证的中间件（不强制要求认证）
 func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取Authorization头
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.Next()
-			return
-		}
-
-		// 检查Bearer前缀
-		const bearerPrefix = "Bearer "
-		if !strings.HasPrefix(authHeader, bearerPrefix) {
-			c.Next()
-			return
-		}
-
-		// 提取令牌
-		tokenString := authHeader[len(bearerPrefix):]
-		if tokenString == "" {
-			c.Next()
-			return
-		}
-
-		// 验证令牌
-		userResponse, err := m.authService.ValidateToken(c.Request.Context(), tokenString)
+		// 尝试使用统一验证器验证令牌
+		userResponse, err := m.validator.ValidateTokenFromRequest(c.Request.Context(), c.Request)
 		if err != nil {
+			// 可选认证失败时不中断请求，继续执行
 			c.Next()
 			return
 		}
